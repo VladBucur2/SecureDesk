@@ -1,0 +1,19 @@
+# Keeps dependencies, base images and CI actions current (SC-08, CRA Annex I part II).
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /api
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directories: [/api, /web, /deploy/collector, /deploy/setup]
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

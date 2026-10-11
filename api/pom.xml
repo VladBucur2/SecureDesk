@@ -117,7 +117,8 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-            <!-- CycloneDX SBOM of every build (SR-11, SC-08): target/bom.json and target/bom.xml. -->
+            <!-- CycloneDX SBOM of every build (SR-11, SC-08). Spring Boot places it in the jar at
+                 META-INF/sbom/application.cdx.json; the image also keeps a copy in /app/sbom. -->
             <plugin>
                 <groupId>org.cyclonedx</groupId>
                 <artifactId>cyclonedx-maven-plugin</artifactId>

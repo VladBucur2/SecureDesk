@@ -25,8 +25,9 @@ public class AttachmentContent implements Persistable<UUID> {
     @Column(name = "attachment_id", length = 36)
     private UUID attachmentId;
 
+    /** The length only tells Hibernate to expect LONGBLOB on MySQL rather than TINYBLOB. */
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, length = Integer.MAX_VALUE)
     private byte[] content;
 
     @jakarta.persistence.Transient

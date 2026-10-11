@@ -1,0 +1,215 @@
+# SecureDesk prototype: the reference architecture of BoK 2.3 on one host.
+#
+#   docker compose run --rm setup     once: secrets, keys and certificates in ./secrets
+#   docker compose up -d --build      the whole system; then https://securedesk.localhost:8443
+#   docker compose run --rm test      the API's test suite in a container
+#   docker compose logs -f api        application log and audit stream (JSON lines)
+#   docker compose logs -f collector  the audit events as the monitoring zone received them
+#
+# The zones are container networks. Only the DMZ network can reach the outside; the others are
+# internal, so a compromised API cannot open a connection to the internet. All traffic between
+# containers is TLS (SR-04). Only Nginx publishes a port, and only on the loopback address.
+#
+#   zone          services                     who may connect
+#   dmz           web (Nginx + React build)    browsers, on 127.0.0.1:8443
+#   app           web -> api                   Nginx only, with a client certificate
+#   data          api, migrate -> mysql        the API and the migration job
+#   monitoring    api -> collector             syslog over TLS from known senders
+#   mail          api -> mail                  SMTP with STARTTLS (the customer's relay)
+#
+# The management zone (bastion, vault, CI runner) has no container here: secrets are files
+# written by the setup step and mounted read-only, one directory per service.
+
+name: securedesk
+
+x-logging: &logging
+  # Docker does not rotate container logs unless told to (BoK 6.2.5).
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-hardened: &hardened
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging: *logging
+  restart: unless-stopped
+
+services:
+
+  # ---- DMZ ----------------------------------------------------------------------------------
+  web:
+    <<: *hardened
+    build: ./web
+    image: securedesk-web:0.1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./secrets/nginx/tls:/run/secrets/tls:ro
+    networks: [dmz, app]
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 256m
+    pids_limit: 200
+
+  # ---- application zone ------------------------------------------------------------------------
+  api:
+    <<: *hardened
+    build: ./api
+    image: securedesk-api:0.1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SECUREDESK_BASE_URL: https://securedesk.localhost:8443
+      # Demonstration accounts and tickets for the laboratory and the red-team exercise.
+      SECUREDESK_DEMO_ENABLED: "true"
+      # The JVM trusts the internal CA only: for MySQL and the mail relay.
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/run/secrets/tls/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+    volumes:
+      - ./secrets/api/config:/run/secrets/config:ro
+      - ./secrets/api/tls:/run/secrets/tls:ro
+    networks: [app, data, monitoring, mail]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      collector:
+        condition: service_started
+      mail:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: 1g
+    pids_limit: 500
+
+  # One-shot: the schema and the grants, as the migrator account, then exit. Same image as the
+  # API, different account: the running API never holds DDL rights.
+  migrate:
+    <<: *hardened
+    image: securedesk-api:0.1.0
+    build: ./api
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    entrypoint: ["java", "-cp", "/app/securedesk-api.jar:/app/lib/*", "nl.fontys.securedesk.migrate.MigrateMain"]
+    environment:
+      MIGRATE_DB_URL: jdbc:mysql://mysql:3306/securedesk?sslMode=VERIFY_IDENTITY&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      MIGRATE_DB_USER: securedesk_migrator
+      MIGRATE_DB_PASSWORD_FILE: /run/secrets/config/db-password
+      MIGRATE_APP_DB_USER: securedesk_app
+      JAVA_TOOL_OPTIONS: >-
+        -Djavax.net.ssl.trustStore=/run/secrets/tls/truststore.p12
+        -Djavax.net.ssl.trustStorePassword=changeit
+        -Djavax.net.ssl.trustStoreType=PKCS12
+    volumes:
+      - ./secrets/migrate/config:/run/secrets/config:ro
+      - ./secrets/migrate/tls:/run/secrets/tls:ro
+    networks: [data]
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ---- data zone ---------------------------------------------------------------------------------
+  mysql:
+    <<: *hardened
+    image: mysql:8.4
+    # Runs as the mysql user from the start, so the entrypoint needs no capabilities.
+    user: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/root-password
+    volumes:
+      - ./secrets/mysql:/run/secrets:ro
+      - ./deploy/mysql/conf.d:/etc/mysql/conf.d:ro
+      - ./deploy/mysql/init:/docker-entrypoint-initdb.d:ro
+      - mysql-data:/var/lib/mysql
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    mem_limit: 1g
+
+  # ---- monitoring zone -----------------------------------------------------------------------------
+  collector:
+    <<: *hardened
+    build: ./deploy/collector
+    image: securedesk-collector:0.1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./secrets/collector/tls:/run/secrets/tls:ro
+      - collector-logs:/var/log/securedesk
+      - collector-spool:/var/spool/rsyslog
+    networks: [monitoring]
+    mem_limit: 128m
+
+  # ---- the customer's mail relay (a stand-in that keeps every message for inspection) ----------
+  mail:
+    <<: *hardened
+    image: axllent/mailpit:v1.31.5
+    environment:
+      MP_SMTP_TLS_CERT: /run/secrets/tls/mail.crt
+      MP_SMTP_TLS_KEY: /run/secrets/tls/mail.key
+      MP_SMTP_REQUIRE_STARTTLS: "true"
+      MP_MAX_MESSAGES: "500"
+    volumes:
+      - ./secrets/mail/tls:/run/secrets/tls:ro
+    ports:
+      - "127.0.0.1:8025:8025"    # the inboxes, to see what a notification contains
+    networks: [mail, mail-ui]
+    mem_limit: 128m
+
+  # ---- tools --------------------------------------------------------------------------------------
+  setup:
+    build: ./deploy/setup
+    image: securedesk-setup:0.1.0
+    profiles: ["tools"]
+    network_mode: none
+    environment:
+      SECUREDESK_HOSTNAME: securedesk.localhost
+    volumes:
+      - ./:/work
+
+  test:
+    image: maven:3.9-eclipse-temurin-21
+    profiles: ["tools"]
+    working_dir: /src
+    volumes:
+      - ./api:/src
+      - maven-cache:/root/.m2
+    command: ["mvn", "-B", "test"]
+
+networks:
+  dmz: {}
+  app:
+    internal: true
+  data:
+    internal: true
+  monitoring:
+    internal: true
+  mail:
+    internal: true
+  mail-ui: {}
+
+volumes:
+  mysql-data:
+  collector-logs:
+  collector-spool:
+  maven-cache:
