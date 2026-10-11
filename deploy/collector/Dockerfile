@@ -1,6 +1,6 @@
 # The log collector of the monitoring zone (BoK 2.3, 5.3.1): rsyslog receiving RFC 5424 over
 # TLS (RFC 5425) from known senders only, writing to a volume no other container mounts.
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 RUN apt-get update \
  && apt-get install -y --no-install-recommends rsyslog rsyslog-gnutls \
  && rm -rf /var/lib/apt/lists/* \
