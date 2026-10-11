@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B package \
  && java -Djarmode=tools -jar target/securedesk-api.jar extract --destination /extracted
 
 # ---- runtime: a JRE on Alpine, an unprivileged user, nothing else -----------------------------
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:25-jre-alpine
 RUN addgroup -S -g 10001 securedesk \
  && adduser -S -u 10001 -G securedesk -H -s /sbin/nologin securedesk
 WORKDIR /app
