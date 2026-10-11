@@ -3,7 +3,7 @@
 # ---- build: compile and run the whole test suite ---------------------------------------------
 # A failing test fails the image build, so an API whose authentication cases or authorisation
 # matrix fail cannot be deployed (as in the PoCs). The CycloneDX SBOM is made here too (SR-11).
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /src
 COPY pom.xml .
 COPY src ./src
