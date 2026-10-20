@@ -2,9 +2,11 @@
 
 ## Context
 
-BoK 5.2.3 A planned the pepper as an HMAC over the password before hashing, rotated by re-hashing at each
-user's next login. The password-storage PoC (BoK 6.3) showed that this rotation never finishes for users
-who do not sign in, so the old key could never be destroyed. NIST SP 800-63B recommends a secret key
+This decision is the report's own; this record documents how the prototype carries it out. The pepper
+was first planned as an HMAC over the password before hashing, rotated by re-hashing at each user's next
+login. The password-storage PoC (BoK 6.3) showed that this rotation never finishes for users who do not
+sign in, so the old key could never be destroyed. 6.3.7 therefore changed the design to the one that
+5.2.3 A now describes. NIST SP 800-63B recommends a secret key
 held apart from the hashes. OWASP notes that a pepper cannot be changed without the users' passwords.
 
 ## Decision

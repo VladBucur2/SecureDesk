@@ -38,7 +38,7 @@ live in one API instance's memory.
 | Pepper held apart from the database | `crypto/Pepper`, `crypto/SealedBox`: AES-256-GCM over the whole record, with associated data `password:<user id>`. Rotation re-seals every record at start-up (`crypto/KeyRotation`) ([ADR 0002](adr/0002-pepper-seals-the-hash-record.md)) |
 | Rehash on parameter change | `crypto/PasswordHasher` reports `OK_REHASHED`, and `AuthService` stores the new record (`PASSWORD_REHASHED`) |
 | Tampered record detected | `PasswordHasher` reports `TAMPERED` (`CREDENTIAL_TAMPERED`, an alert); the user sees the generic failure |
-| No account enumeration | The same response for every failure. An unknown user is verified against a dummy record, so the timing matches |
+| No account enumeration | The same response for every failure. An unknown user is verified against a dummy record, so the same work is done. No test measures the timing yet |
 | Breached-password check, no composition rules, no forced rotation | `crypto/PasswordPolicy` from the PoC: 15 to 128 characters, NFC, the NCSC top-100k blocklist (`common-passwords.txt`), refuses passwords that contain the username or display name, no composition rules |
 | Progressive delay and lockout per account | `auth/LoginThrottleService`: 0, 1, 2, 4, 8 s, and a lock for 15 minutes after 10 failures in 15 minutes. It is keyed on the submitted username, so it applies to unknown names as well, and the row is locked while it is updated |
 | Rate limiting per IP | Nginx `limit_req`: 20 per minute (burst 10) on `/api/auth/{login,mfa,enrol,password,reauth}` (`web/nginx/securedesk.conf`) |
@@ -140,8 +140,8 @@ Secret scanning in CI is not set up yet.
 - **Runner permissions.** The CI token is read-only (`permissions: contents: read`), and checkout does
   not keep the credentials.
 
-**Left:** container and Maven vulnerability scanning with a failing threshold, and image signing and
-verification at deployment.
+**Left:** container and Maven vulnerability scanning with a failing threshold, image signing and
+verification at deployment, SAST, and the Schemathesis and ZAP runs planned in 5.2.3 A.
 
 ## SC-09: Logging, audit and detection (5.2.3 C)
 
@@ -153,7 +153,7 @@ verification at deployment.
 | Tampering detected | `audit/AuditChainVerifier`, two minutes after start-up and then hourly, and on demand from the audit page (`AUDIT_CHAIN_BROKEN`, an alert) |
 | Off-host within seconds | `audit/AuditForwarder`: RFC 5424 over TLS 1.3 with a client certificate to rsyslog (`deploy/collector/rsyslog.conf`). The collector accepts only the peer `securedesk-api` |
 | No log injection | Values are JSON fields, never concatenated. RFC 5424 structured-data values are escaped |
-| Alerting on privileged actions | An `alert` flag per event type, plus the detection rules R1–R5 in [event-catalogue.md](event-catalogue.md) |
+| Alerting on privileged actions | An `alert` flag per event type, plus the detection rules R1–R5 in [event-catalogue.md](event-catalogue.md). There is no SIEM in the laboratory, so nothing runs the rules yet |
 | Correlation | `X-Request-ID` from Nginx, in Nginx's JSON access log, the application log and every audit event |
 
 **Proof:** `audit/AuditTrailTest` covers the chain, tampering, deletion and rolled-back changes.

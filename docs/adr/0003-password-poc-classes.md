@@ -18,7 +18,7 @@ unseal, parse with bounds, verify in constant time, report `OK`, `OK_REHASHED`, 
 and re-hash when the stored parameters differ from the policy (m=19456 KiB, t=2, p=1). A semaphore
 limits concurrent Argon2id computations, so a burst of sign-ins queues on virtual threads rather than
 exhausting memory. An unknown username is verified against a dummy record with the same parameters, so
-the response time does not reveal whether the account exists.
+the same work is done whether or not the account exists. No test measures the timing yet.
 
 ## Consequences
 

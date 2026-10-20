@@ -2,8 +2,8 @@
 
 ## Context
 
-The report names Spring Boot without a version. The 3.x line ended with 3.5, whose open-source support
-ended in June 2026. A product that falls under the CRA must ship with security updates for its support
+The report plans Spring Boot 3 for SecureDesk, the same stack as the mfa-poc (6.1.2: "Identical, so the
+code transfers"). The 3.x line ended with 3.5, whose open-source support ended in June 2026. A product that falls under the CRA must ship with security updates for its support
 period (Annex I Part II).
 
 ## Decision

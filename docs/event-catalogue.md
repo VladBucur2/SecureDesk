@@ -85,7 +85,7 @@ values the code writes. The default is `SUCCESS`.
 | Event | Alert | Outcomes | Details | When |
 |---|---|---|---|---|
 | `LOGIN_PASSWORD` | | SUCCESS, FAILURE | `reason` (`unknown_account`, `bad_password`, `no_password`, `tampered`, `disabled`), `failed_count` | Password step of the sign-in. For an unknown username the actor is `-` |
-| `LOGIN_BLOCKED` | | LOCKED | | A password or code attempt for a username that is locked. The password is still hashed against a dummy, so timing does not reveal the lock |
+| `LOGIN_BLOCKED` | | LOCKED | | A password or code attempt for a username that is locked. The password is still hashed against a dummy, so the work done is the same as for a real check |
 | `ACCOUNT_LOCKED` | yes | LOCKED | | The tenth failure within fifteen minutes, counting password, code and step-up failures. The username is locked for fifteen minutes |
 | `MFA_VERIFY` | | SUCCESS, FAILURE | `method` (`totp`, `recovery_code`) or `failed_count` | Code step of the sign-in. A replayed code is a failure. A failure that reaches the limit writes `ACCOUNT_LOCKED` instead |
 | `MFA_RECOVERY_USED` | yes | SUCCESS | `remaining` | A single-use recovery code was spent |

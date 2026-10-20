@@ -2,6 +2,7 @@
 
 ## Context
 
+This decision is the report's own (5.2.3 A); this record documents how the prototype carries it out.
 The OWASP Secure-by-Design framework assumes a central identity provider (an OIDC provider such as
 Keycloak or Entra ID) in front of every application. SecureDesk is sold to SMEs that often have none. And
 implementing authentication correctly is one of the learning goals of this semester (BoK 5.2.3 A).
@@ -21,7 +22,9 @@ into a signed-in session. The pending stages come in a fixed order, and `AuthSta
 ## Consequences
 
 - All of SC-01 and SC-02 is this project's code, so it is covered by the tests in `auth/` and `crypto/`.
-  Those tests include the generic-response, timing-equalisation and replay tests of 5.2.3 A.
+  Those tests include the generic-response and replay tests of 5.2.3 A. Its timing comparison between an
+  unknown user and a wrong password is not automated: the code verifies a dummy hash for unknown users
+  (`PasswordHasher.verifyAgainstDummy`), but no test measures the timing.
 - TOTP is phishable through a real-time relay. WebAuthn would close that and is the next step. The code
   keeps the factor behind `AuthService.checkCode`, so adding a method there does not touch the
   controllers.
