@@ -21,7 +21,7 @@
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- Versions not managed by Spring Boot are pinned here and recorded in the SBOM. -->
-        <bouncycastle.version>1.86</bouncycastle.version>
+        <bouncycastle.version>1.87</bouncycastle.version>
         <zxing.version>3.5.3</zxing.version>
         <archunit.version>1.5.1</archunit.version>
         <cyclonedx.version>2.9.3</cyclonedx.version>
